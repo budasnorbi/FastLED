@@ -123,6 +123,7 @@ enum ESPIChipsets {
 	APA102HD, ///< APA102 LED chipset with 5-bit gamma correction
 	HD107,  /// Same as APA102, but in turbo 40-mhz mode.
 	HD107HD,  /// Same as APA102HD, but in turbo 40-mhz mode.
+	HD108
 
 };
 
@@ -464,6 +465,8 @@ public:
 
 	_FL_MAP_CLOCKED_CHIPSET(SK9822, SK9822Controller)
 	_FL_MAP_CLOCKED_CHIPSET(SK9822HD, SK9822ControllerHD)
+
+	_FL_MAP_CLOCKED_CHIPSET(HD108, HD108Controller)
 
 
 	#if FASTLED_FAKE_SPI_FORWARDS_TO_FAKE_CLOCKLESS

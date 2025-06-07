@@ -593,6 +593,96 @@ class SK9822ControllerHD : public APA102Controller<
 > {
 };
 
+template <
+    uint8_t DATA_PIN,
+    uint8_t CLOCK_PIN,
+    EOrder RGB_ORDER = RGB,
+    uint32_t SPI_SPEED = DATA_RATE_MHZ(40)
+>
+class HD108Controller : public CPixelLEDController<RGB_ORDER> {  
+    typedef SPIOutput<DATA_PIN, CLOCK_PIN, SPI_SPEED> SPI;
+    SPI mSPI;
+
+public:
+    HD108Controller() {}
+
+    virtual void init() override {
+        mSPI.init();
+    }
+
+protected:
+    virtual void showPixels(PixelController<RGB_ORDER> & pixels) override {
+        mSPI.select();
+        startFrame();
+        while (pixels.has(1)) {
+            uint8_t rGain = 1, gGain = 1, bGain = 1;  // Default gains to avoid LED flickering
+            uint8_t r8, g8, b8;
+            uint16_t r, g, b;
+
+            // Corrected: Use FastLED's standard scaling function
+            pixels.loadAndScaleRGB(&r8, &g8, &b8);
+
+            // Scale from 8-bit (0-255) to 16-bit (0-65535) for HD108
+            r = (uint16_t(r8) << 8) | r8;
+            g = (uint16_t(g8) << 8) | g8;
+            b = (uint16_t(b8) << 8) | b8;
+
+            // Send data in the required format
+            writeLedFrame(rGain, gGain, bGain, r, g, b);
+            pixels.stepDithering();
+            pixels.advanceData();
+        }
+        endFrame(pixels.size());
+        mSPI.waitFully();
+        mSPI.release();
+    }
+
+private:
+    inline void startFrame() {
+        mSPI.writeByte(0x00);
+        mSPI.writeByte(0x00);
+        mSPI.writeByte(0x00);
+        mSPI.writeByte(0x00);
+    }
+
+    inline void endFrame(int nLeds) {
+        int nBytes = (nLeds / 16) * 8;
+        for (int i = 0; i < nBytes; i++) {
+            mSPI.writeByte(0xFF);
+        }
+    }
+
+inline void writeLedFrame(uint8_t rGain, uint8_t gGain, uint8_t bGain, uint16_t r, uint16_t g, uint16_t b) {
+    uint8_t frame[8] = {
+        uint8_t(0x80 | ((rGain & 0x1F) << 2) | ((gGain >> 3) & 0x03)),  // Gain Control (1st byte)
+        uint8_t(((gGain & 0x07) << 5) | (bGain & 0x1F)),                // Gain Control (2nd byte)
+        uint8_t(r >> 8), uint8_t(r & 0xFF),  // Red High & Low
+        uint8_t(g >> 8), uint8_t(g & 0xFF),  // Green High & Low
+        uint8_t(b >> 8), uint8_t(b & 0xFF)   // Blue High & Low
+    };
+
+    mSPI.writeBytes(frame, 8);
+}
+
+};
+
+/// HD108HD - "high definition" bit-shift gamma controller
+template <
+    uint8_t DATA_PIN,
+    uint8_t CLOCK_PIN,
+    EOrder RGB_ORDER = GRB,  
+    uint32_t SPI_SPEED = DATA_RATE_MHZ(40)
+>
+class HD108ControllerHD : public HD108Controller<
+    DATA_PIN,
+    CLOCK_PIN,
+    RGB_ORDER,
+    SPI_SPEED
+> {
+public:
+    HD108ControllerHD() = default;
+};
+
 
 /// HD107 is just the APA102 with a default 40Mhz clock rate.
 template <
